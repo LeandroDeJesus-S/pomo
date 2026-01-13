@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +13,22 @@ import (
 	"github.com/gen2brain/beeep"
 	overlay "github.com/rmhubbert/bubbletea-overlay"
 )
+
+var debugEnabled = os.Getenv("POMO_DEBUG") != ""
+
+func debugf(msg string, v ...any) {
+	if !debugEnabled {
+		return
+	}
+	log.Printf(msg, v...)
+}
+
+func debug(msg string) {
+	if !debugEnabled {
+		return
+	}
+	log.Println(msg)
+}
 
 type SessionType int
 
@@ -149,6 +166,7 @@ type Model struct {
 	editingConfigField SessionType
 	width              int
 	height             int
+	ticker             *time.Ticker
 }
 
 func initialModel(cfg Config) Model {
@@ -160,11 +178,12 @@ func initialModel(cfg Config) Model {
 		stats: Stats{
 			SessionsUntilLongBreak: 4,
 		},
+		ticker: time.NewTicker(time.Second),
 	}
 }
 
 func (m Model) Init() tea.Cmd {
-	return tickCmd()
+	return m.tickerCmd()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -178,6 +197,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if key == "q" || key == "ctrl+c" {
 			m.quitting = true
+			m.ticker.Stop()
 			return m, tea.Quit
 		}
 
@@ -228,8 +248,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch key {
 		case "p", " ":
 			m.paused = !m.paused
-			if !m.paused {
-				return m, tickCmd()
+			if m.paused {
+				m.ticker.Stop()
+			} else {
+				m.ticker = time.NewTicker(time.Second)
+				return m, m.tickerCmd()
 			}
 		case "+":
 			if !m.paused {
@@ -243,7 +266,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.nextSessionCmd()
 		case "r":
 			m.timeLeft = m.initialDuration
-			return m, tickCmd()
+			return m, m.tickerCmd()
 		}
 
 	case tickMsg:
@@ -251,11 +274,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		m.timeLeft -= time.Second
+		debugf("Tick message: %v:%v\n", time.Time(msg).Minute(), time.Time(msg).Second())
+
+		debugf("Time left: %v\n", m.timeLeft)
+		m.timeLeft -= time.Second * 1
+		debugf("Time left updated: %v\n", m.timeLeft)
+
 		if m.timeLeft <= 0 {
 			return m, m.nextSessionCmd()
 		}
-		return m, tickCmd()
+		return m, m.tickerCmd()
 	}
 
 	return m, nil
@@ -600,10 +628,11 @@ func formatDuration(d time.Duration) string {
 
 type tickMsg time.Time
 
-func tickCmd() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
+func (m *Model) tickerCmd() tea.Cmd {
+	return func() tea.Msg {
+		<-m.ticker.C
+		return tickMsg(time.Now())
+	}
 }
 
 func sendNotificationCmd(title, body string) tea.Cmd {
@@ -614,6 +643,7 @@ func sendNotificationCmd(title, body string) tea.Cmd {
 }
 
 func (m *Model) nextSessionCmd() tea.Cmd {
+	debug("nextSessionCmd")
 	var notificationTitle, notificationBody string
 
 	if m.currentSession == Study {
@@ -653,10 +683,19 @@ func (m *Model) nextSessionCmd() tea.Cmd {
 		notificationBody = "Let's get back to work!"
 	}
 
-	return tea.Batch(tickCmd(), sendNotificationCmd(notificationTitle, notificationBody))
+	return tea.Batch(sendNotificationCmd(notificationTitle, notificationBody), m.tickerCmd())
 }
 
 func main() {
+	if debugEnabled {
+		f, err := tea.LogToFile("debug.log", "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+	}
+
 	studyMins := flag.Int("study", DefaultStudyMins, "Duration of the study session in minutes")
 	breakMins := flag.Int("break", DefaultBreakMins, "Duration of the short break in minutes")
 	longBreakMins := flag.Int("lbreak", DefaultLBreakMins, "Duration of the long break in minutes")
