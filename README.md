@@ -2,6 +2,11 @@
 
 A beautiful and efficient Pomodoro timer for the terminal, built with [Bubbletea](https://github.com/charmbracelet/bubbletea) and [Lipgloss](https://github.com/charmbracelet/lipgloss). Features a modern TUI interface with color-coded sessions, ASCII art timer, progress tracking, and system notifications.
 
+
+<div align="center">
+  <img src="./assets/demo.png" alt="Demo" width="500">
+</div>
+
 ## ✨ Features
 
 - **Session Types**: Focus Time (Study), Short Break, Long Break with distinct color labels
