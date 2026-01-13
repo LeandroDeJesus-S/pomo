@@ -1,4 +1,4 @@
-module pomo
+module github.com/LeandroDeJesus-S/pomo
 
 go 1.25.4
 
