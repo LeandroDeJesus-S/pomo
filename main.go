@@ -62,16 +62,11 @@ var (
 	mutedColor  = lipgloss.Color("#6B7280")
 	accentColor = lipgloss.Color("#EC4899")
 	greenColor  = lipgloss.Color("#10B981")
+	lightPurple = lipgloss.Color("#C084FC")
+	darkPurple  = lipgloss.Color("#7C3AED")
 )
 
 var (
-	// Giant purple label
-	labelStyle = lipgloss.NewStyle().
-			Foreground(purpleColor).
-			Bold(true).
-			Align(lipgloss.Center).
-			MarginBottom(2)
-
 	// Timer style
 	timerStyle = lipgloss.NewStyle().
 			Foreground(purpleColor).
@@ -386,6 +381,26 @@ func (m Model) renderMainContent() string {
 
 func (m Model) renderBigLabel() string {
 	label := m.currentSession.String()
+
+	// Get color based on session
+	var color lipgloss.Color
+	switch m.currentSession {
+	case Study:
+		color = purpleColor
+	case Break:
+		color = lightPurple
+	case LongBreak:
+		color = darkPurple
+	default:
+		color = purpleColor
+	}
+
+	// Create dynamic style
+	labelStyle := lipgloss.NewStyle().
+		Foreground(color).
+		Bold(true).
+		Align(lipgloss.Center).
+		MarginBottom(2)
 
 	// Create ASCII art style label
 	art := []string{
