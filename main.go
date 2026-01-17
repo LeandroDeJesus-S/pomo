@@ -652,7 +652,8 @@ func (m *Model) tickerCmd() tea.Cmd {
 
 func sendNotificationCmd(title, body string) tea.Cmd {
 	return func() tea.Msg {
-		_ = beeep.Notify(title, body, "")
+		// TODO: display error if notification is not supported
+		_ = beeep.Alert(title, body, "")
 		return nil
 	}
 }
